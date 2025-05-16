@@ -117,8 +117,7 @@ const MemberList: React.FC<MemberListProps> = ({
                       ) : (
                         <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center">
                           <span className="text-primary-600 dark:text-primary-200 font-medium text-sm">
-                            {member.firstName[0]}
-                            {member.lastName[0]}
+                            {(member.firstName?.[0] || '')}{(member.lastName?.[0] || '')}
                           </span>
                         </div>
                       )}
