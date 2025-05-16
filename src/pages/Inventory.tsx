@@ -162,3 +162,5 @@ const Inventory: React.FC = () => {
     </div>
   );
 };
+
+export default Inventory
