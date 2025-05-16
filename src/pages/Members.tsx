@@ -292,3 +292,5 @@ const Members: React.FC = () => {
     </div>
   );
 };
+
+export default Members
