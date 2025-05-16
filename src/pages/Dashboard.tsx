@@ -1,18 +1,153 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, DollarSign, CalendarDays, Package, 
   TrendingUp, ArrowUpRight, PieChart, BarChart2
 } from 'lucide-react';
 import MetricsCard from '../components/dashboard/MetricsCard';
 import ChartComponent from '../components/dashboard/ChartComponent';
-import { 
-  mockDashboardStats, 
-  mockMembershipChart, 
-  mockFinanceChart, 
-  mockAttendanceChart 
-} from '../utils/mockData';
+import { useSupabase } from '../hooks/useSupabase';
 
 const Dashboard: React.FC = () => {
+  const [stats, setStats] = useState({
+    totalMembers: 0,
+    totalIncome: 0,
+    upcomingEvents: 0,
+    lowStockItems: 0,
+  });
+
+  const [membershipData, setMembershipData] = useState({
+    labels: [],
+    datasets: [{
+      label: 'Novos Membros',
+      data: [],
+      backgroundColor: 'rgba(0, 59, 77, 0.7)',
+    }],
+  });
+
+  const [financeData, setFinanceData] = useState({
+    labels: [],
+    datasets: [
+      {
+        label: 'Receitas',
+        data: [],
+        borderColor: 'rgba(212, 175, 55, 0.7)',
+        backgroundColor: 'rgba(212, 175, 55, 0.2)',
+      },
+      {
+        label: 'Despesas',
+        data: [],
+        borderColor: 'rgba(239, 68, 68, 0.7)',
+        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+      },
+    ],
+  });
+
+  const [attendanceData, setAttendanceData] = useState({
+    labels: ['Domingo', 'Quarta', 'Sexta', 'Células', 'Jovens'],
+    datasets: [{
+      label: 'Presenças',
+      data: [0, 0, 0, 0, 0],
+      backgroundColor: [
+        'rgba(0, 59, 77, 0.8)',
+        'rgba(212, 175, 55, 0.8)',
+        'rgba(59, 130, 246, 0.8)',
+        'rgba(16, 185, 129, 0.8)',
+        'rgba(245, 158, 11, 0.8)',
+      ],
+    }],
+  });
+
+  const { supabase } = useSupabase();
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      // Load members count
+      const { count: membersCount } = await supabase
+        .from('members')
+        .select('*', { count: 'exact' });
+
+      // Load financial data
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('date', { ascending: false });
+
+      // Load inventory data
+      const { data: inventory } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .eq('status', 'low');
+
+      // Calculate totals
+      const totalIncome = transactions
+        ?.filter(t => t.type !== 'expense')
+        .reduce((sum, t) => sum + t.amount, 0) || 0;
+
+      // Update stats
+      setStats({
+        totalMembers: membersCount || 0,
+        totalIncome,
+        upcomingEvents: 0, // To be implemented with events table
+        lowStockItems: inventory?.length || 0,
+      });
+
+      // Update charts data
+      updateChartsData(transactions);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    }
+  };
+
+  const updateChartsData = (transactions: any[]) => {
+    // Get last 6 months
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      return date.toLocaleString('pt-BR', { month: 'short' });
+    }).reverse();
+
+    // Calculate monthly totals
+    const monthlyIncome = new Array(6).fill(0);
+    const monthlyExpenses = new Array(6).fill(0);
+
+    transactions?.forEach(transaction => {
+      const transactionDate = new Date(transaction.date);
+      const monthIndex = months.findIndex(month => 
+        month === transactionDate.toLocaleString('pt-BR', { month: 'short' })
+      );
+
+      if (monthIndex !== -1) {
+        if (transaction.type === 'expense') {
+          monthlyExpenses[monthIndex] += transaction.amount;
+        } else {
+          monthlyIncome[monthIndex] += transaction.amount;
+        }
+      }
+    });
+
+    setFinanceData({
+      labels: months,
+      datasets: [
+        {
+          label: 'Receitas',
+          data: monthlyIncome,
+          borderColor: 'rgba(212, 175, 55, 0.7)',
+          backgroundColor: 'rgba(212, 175, 55, 0.2)',
+        },
+        {
+          label: 'Despesas',
+          data: monthlyExpenses,
+          borderColor: 'rgba(239, 68, 68, 0.7)',
+          backgroundColor: 'rgba(239, 68, 68, 0.2)',
+        },
+      ],
+    });
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
@@ -27,36 +162,30 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricsCard
           title="Total de Membros"
-          value={mockDashboardStats.totalMembers}
+          value={stats.totalMembers}
           icon={<Users size={20} className="text-primary-500" />}
-          change={2.5}
-          changeText="desde o mês passado"
           iconBackground="bg-primary-100 dark:bg-primary-800"
         />
         
         <MetricsCard
           title="Receitas Mensais"
-          value={mockDashboardStats.totalIncome}
+          value={stats.totalIncome}
           prefix="R$ "
           icon={<DollarSign size={20} className="text-secondary-500" />}
-          change={5.2}
-          changeText="desde o mês passado"
           iconBackground="bg-secondary-100 dark:bg-secondary-800"
         />
         
         <MetricsCard
           title="Eventos Futuros"
-          value={mockDashboardStats.upcomingEvents}
+          value={stats.upcomingEvents}
           icon={<CalendarDays size={20} className="text-info-500" />}
           iconBackground="bg-blue-100 dark:bg-blue-800"
         />
         
         <MetricsCard
           title="Itens com Estoque Baixo"
-          value={mockDashboardStats.lowStockItems}
+          value={stats.lowStockItems}
           icon={<Package size={20} className="text-warning-500" />}
-          change={-2}
-          changeText="desde o mês passado"
           iconBackground="bg-yellow-100 dark:bg-yellow-800"
         />
       </div>
@@ -65,14 +194,14 @@ const Dashboard: React.FC = () => {
         <ChartComponent
           title="Receitas e Despesas"
           description="Comparativo dos últimos 6 meses"
-          chartData={mockFinanceChart}
+          chartData={financeData}
           chartType="line"
         />
         
         <ChartComponent
           title="Crescimento de Membros"
           description="Novos membros nos últimos 6 meses"
-          chartData={mockMembershipChart}
+          chartData={membershipData}
           chartType="bar"
         />
       </div>
@@ -81,7 +210,7 @@ const Dashboard: React.FC = () => {
         <ChartComponent
           title="Presenças por Evento"
           description="Média de presenças por tipo de evento"
-          chartData={mockAttendanceChart}
+          chartData={attendanceData}
           chartType="doughnut"
           className="lg:col-span-1"
         />
