@@ -1,15 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MemberList from '../components/members/MemberList';
 import MemberForm from '../components/members/MemberForm';
 import Modal from '../components/ui/Modal';
-import { mockMembers } from '../utils/mockData';
+import { useSupabase } from '../hooks/useSupabase';
 import { Member } from '../types';
 
 const Members: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [isViewingMember, setIsViewingMember] = useState(false);
-  const [members, setMembers] = useState(mockMembers);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { getMembers, addMember, updateMember } = useSupabase();
+
+  useEffect(() => {
+    loadMembers();
+  }, []);
+
+  const loadMembers = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getMembers();
+      setMembers(data);
+    } catch (error) {
+      console.error('Erro ao carregar membros:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAddMember = () => {
     setIsAddingMember(true);
@@ -34,34 +52,53 @@ const Members: React.FC = () => {
     setSelectedMember(null);
   };
 
-  const handleSubmit = (data: Partial<Member>) => {
-    if (selectedMember) {
-      // Update existing member
-      setMembers(prev => prev.map(member => 
-        member.id === selectedMember.id ? { ...member, ...data } : member
-      ));
-    } else {
-      // Add new member
-      const newMember: Member = {
-        id: String(Date.now()),
-        firstName: data.firstName!,
-        lastName: data.lastName!,
-        email: data.email!,
-        phone: data.phone!,
-        address: data.address!,
-        birthDate: data.birthDate!,
-        baptismDate: data.baptismDate,
-        joinDate: new Date().toISOString(),
-        status: data.status! as 'active' | 'inactive' | 'visitor',
-        groups: data.groups || [],
-        ministries: data.ministries || [],
-        skills: data.skills || [],
-        notes: data.notes,
-      };
-      setMembers(prev => [...prev, newMember]);
+  const handleSubmit = async (data: Partial<Member>) => {
+    try {
+      if (selectedMember) {
+        await updateMember(selectedMember.id, {
+          first_name: data.firstName,
+          last_name: data.lastName,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+          birth_date: data.birthDate,
+          baptism_date: data.baptismDate,
+          status: data.status as 'active' | 'inactive' | 'visitor',
+          groups: data.groups,
+          ministries: data.ministries,
+          skills: data.skills,
+          notes: data.notes,
+        });
+      } else {
+        await addMember({
+          first_name: data.firstName!,
+          last_name: data.lastName!,
+          email: data.email!,
+          phone: data.phone,
+          address: data.address,
+          birth_date: data.birthDate,
+          baptism_date: data.baptismDate,
+          status: data.status as 'active' | 'inactive' | 'visitor',
+          groups: data.groups,
+          ministries: data.ministries,
+          skills: data.skills,
+          notes: data.notes,
+        });
+      }
+      await loadMembers();
+      handleCloseModal();
+    } catch (error) {
+      console.error('Erro ao salvar membro:', error);
     }
-    handleCloseModal();
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -180,7 +217,7 @@ const Members: React.FC = () => {
                   Ministérios
                 </h4>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  {selectedMember.ministries.map((ministry, index) => (
+                  {selectedMember.ministries?.map((ministry, index) => (
                     <span
                       key={index}
                       className="px-2 py-1 text-xs rounded-full bg-primary-50 dark:bg-primary-900 text-primary-600 dark:text-primary-200"
@@ -196,7 +233,7 @@ const Members: React.FC = () => {
                   Grupos
                 </h4>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  {selectedMember.groups.map((group, index) => (
+                  {selectedMember.groups?.map((group, index) => (
                     <span
                       key={index}
                       className="px-2 py-1 text-xs rounded-full bg-secondary-50 dark:bg-secondary-900 text-secondary-600 dark:text-secondary-200"
@@ -212,7 +249,7 @@ const Members: React.FC = () => {
                   Habilidades
                 </h4>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  {selectedMember.skills.map((skill, index) => (
+                  {selectedMember.skills?.map((skill, index) => (
                     <span
                       key={index}
                       className="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
@@ -255,5 +292,3 @@ const Members: React.FC = () => {
     </div>
   );
 };
-
-export default Members;

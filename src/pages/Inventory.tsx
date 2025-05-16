@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Package, AlertTriangle, ShoppingCart
 } from 'lucide-react';
@@ -6,13 +6,31 @@ import InventoryList from '../components/inventory/InventoryList';
 import InventoryForm from '../components/inventory/InventoryForm';
 import Modal from '../components/ui/Modal';
 import MetricsCard from '../components/dashboard/MetricsCard';
-import { mockInventory } from '../utils/mockData';
+import { useSupabase } from '../hooks/useSupabase';
 import { InventoryItem } from '../types';
 
 const Inventory: React.FC = () => {
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [inventory, setInventory] = useState(mockInventory);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { getInventory, addInventoryItem, updateInventoryItem } = useSupabase();
+
+  useEffect(() => {
+    loadInventory();
+  }, []);
+
+  const loadInventory = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getInventory();
+      setInventory(data);
+    } catch (error) {
+      console.error('Erro ao carregar inventário:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAddItem = () => {
     setIsAddingItem(true);
@@ -29,31 +47,49 @@ const Inventory: React.FC = () => {
     setSelectedItem(null);
   };
 
-  const handleSubmit = (data: Partial<InventoryItem>) => {
-    if (selectedItem) {
-      // Update existing item
-      setInventory(prev => prev.map(item => 
-        item.id === selectedItem.id ? { ...item, ...data } : item
-      ));
-    } else {
-      // Add new item
-      const newItem: InventoryItem = {
-        id: String(Date.now()),
-        name: data.name!,
-        category: data.category!,
-        quantity: data.quantity!,
-        location: data.location!,
-        value: data.value!,
-        supplier: data.supplier,
-        purchaseDate: data.purchaseDate,
-        minQuantity: data.minQuantity,
-        status: data.status! as 'available' | 'low' | 'depleted',
-        notes: data.notes,
-      };
-      setInventory(prev => [...prev, newItem]);
+  const handleSubmit = async (data: Partial<InventoryItem>) => {
+    try {
+      if (selectedItem) {
+        await updateInventoryItem(selectedItem.id, {
+          name: data.name,
+          category: data.category,
+          quantity: data.quantity,
+          location: data.location,
+          value: data.value,
+          supplier: data.supplier,
+          purchase_date: data.purchaseDate,
+          min_quantity: data.minQuantity,
+          status: data.status as 'available' | 'low' | 'depleted',
+          notes: data.notes,
+        });
+      } else {
+        await addInventoryItem({
+          name: data.name!,
+          category: data.category!,
+          quantity: data.quantity!,
+          location: data.location!,
+          value: data.value!,
+          supplier: data.supplier,
+          purchase_date: data.purchaseDate,
+          min_quantity: data.minQuantity,
+          status: data.status as 'available' | 'low' | 'depleted',
+          notes: data.notes,
+        });
+      }
+      await loadInventory();
+      handleCloseModal();
+    } catch (error) {
+      console.error('Erro ao salvar item:', error);
     }
-    handleCloseModal();
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+      </div>
+    );
+  }
 
   // Calculate inventory metrics
   const totalItems = inventory.reduce((sum, item) => sum + item.quantity, 0);
@@ -126,5 +162,3 @@ const Inventory: React.FC = () => {
     </div>
   );
 };
-
-export default Inventory;
