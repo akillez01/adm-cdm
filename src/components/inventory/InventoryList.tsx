@@ -1,5 +1,5 @@
+import { AlertTriangle, Plus, Search } from 'lucide-react';
 import React, { useState } from 'react';
-import { Search, Plus, AlertTriangle } from 'lucide-react';
 import { InventoryItem } from '../../types';
 
 interface InventoryListProps {

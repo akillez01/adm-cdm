@@ -79,12 +79,44 @@ export function useSupabase() {
     return data;
   }, []);
 
+<<<<<<< HEAD
   return {
+=======
+  // Transações
+  const getTransactions = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('date', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }, []);
+
+  const addTransaction = useCallback(async (transaction: any) => {
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert(transaction)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }, []);
+
+  return {
+    supabase,
+>>>>>>> b30ad49 (atualizado do vscode)
     getMembers,
     addMember,
     updateMember,
     getInventory,
     addInventoryItem,
     updateInventoryItem,
+<<<<<<< HEAD
+=======
+    getTransactions,
+    addTransaction,
+>>>>>>> b30ad49 (atualizado do vscode)
   };
 }

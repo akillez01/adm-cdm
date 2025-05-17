@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Package, AlertTriangle, ShoppingCart
+import {
+  AlertTriangle,
+  Package,
+  ShoppingCart
 } from 'lucide-react';
-import InventoryList from '../components/inventory/InventoryList';
-import InventoryForm from '../components/inventory/InventoryForm';
-import Modal from '../components/ui/Modal';
+import React, { useEffect, useState } from 'react';
 import MetricsCard from '../components/dashboard/MetricsCard';
+import InventoryForm from '../components/inventory/InventoryForm';
+import InventoryList from '../components/inventory/InventoryList';
+import Modal from '../components/ui/Modal';
 import { useSupabase } from '../hooks/useSupabase';
 import { InventoryItem } from '../types';
 

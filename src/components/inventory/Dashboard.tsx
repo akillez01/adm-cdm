@@ -1,24 +1,13 @@
-<<<<<<< HEAD
-import React from 'react';
-=======
-import React, { useState, useEffect } from 'react';
->>>>>>> b30ad49 (atualizado do vscode)
-import { 
-  Users, DollarSign, CalendarDays, Package, 
-  TrendingUp, ArrowUpRight, PieChart, BarChart2
+import {
+    ArrowUpRight,
+    CalendarDays,
+    DollarSign,
+    Package,
+    Users
 } from 'lucide-react';
-import MetricsCard from '../components/dashboard/MetricsCard';
+import React, { useEffect, useState } from 'react';
 import ChartComponent from '../components/dashboard/ChartComponent';
-<<<<<<< HEAD
-import { 
-  mockDashboardStats, 
-  mockMembershipChart, 
-  mockFinanceChart, 
-  mockAttendanceChart 
-} from '../utils/mockData';
-
-const Dashboard: React.FC = () => {
-=======
+import MetricsCard from '../components/dashboard/MetricsCard';
 import { useSupabase } from '../hooks/useSupabase';
 
 const Dashboard: React.FC = () => {
@@ -162,7 +151,6 @@ const Dashboard: React.FC = () => {
     });
   };
 
->>>>>>> b30ad49 (atualizado do vscode)
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
@@ -177,56 +165,30 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricsCard
           title="Total de Membros"
-<<<<<<< HEAD
-          value={mockDashboardStats.totalMembers}
-          icon={<Users size={20} className="text-primary-500" />}
-          change={2.5}
-          changeText="desde o mês passado"
-=======
           value={stats.totalMembers}
           icon={<Users size={20} className="text-primary-500" />}
->>>>>>> b30ad49 (atualizado do vscode)
           iconBackground="bg-primary-100 dark:bg-primary-800"
         />
         
         <MetricsCard
           title="Receitas Mensais"
-<<<<<<< HEAD
-          value={mockDashboardStats.totalIncome}
-          prefix="R$ "
-          icon={<DollarSign size={20} className="text-secondary-500" />}
-          change={5.2}
-          changeText="desde o mês passado"
-=======
           value={stats.totalIncome}
           prefix="R$ "
           icon={<DollarSign size={20} className="text-secondary-500" />}
->>>>>>> b30ad49 (atualizado do vscode)
           iconBackground="bg-secondary-100 dark:bg-secondary-800"
         />
         
         <MetricsCard
           title="Eventos Futuros"
-<<<<<<< HEAD
-          value={mockDashboardStats.upcomingEvents}
-=======
           value={stats.upcomingEvents}
->>>>>>> b30ad49 (atualizado do vscode)
           icon={<CalendarDays size={20} className="text-info-500" />}
           iconBackground="bg-blue-100 dark:bg-blue-800"
         />
         
         <MetricsCard
           title="Itens com Estoque Baixo"
-<<<<<<< HEAD
-          value={mockDashboardStats.lowStockItems}
-          icon={<Package size={20} className="text-warning-500" />}
-          change={-2}
-          changeText="desde o mês passado"
-=======
           value={stats.lowStockItems}
           icon={<Package size={20} className="text-warning-500" />}
->>>>>>> b30ad49 (atualizado do vscode)
           iconBackground="bg-yellow-100 dark:bg-yellow-800"
         />
       </div>
@@ -235,22 +197,14 @@ const Dashboard: React.FC = () => {
         <ChartComponent
           title="Receitas e Despesas"
           description="Comparativo dos últimos 6 meses"
-<<<<<<< HEAD
-          chartData={mockFinanceChart}
-=======
           chartData={financeData}
->>>>>>> b30ad49 (atualizado do vscode)
           chartType="line"
         />
         
         <ChartComponent
           title="Crescimento de Membros"
           description="Novos membros nos últimos 6 meses"
-<<<<<<< HEAD
-          chartData={mockMembershipChart}
-=======
           chartData={membershipData}
->>>>>>> b30ad49 (atualizado do vscode)
           chartType="bar"
         />
       </div>
@@ -259,11 +213,7 @@ const Dashboard: React.FC = () => {
         <ChartComponent
           title="Presenças por Evento"
           description="Média de presenças por tipo de evento"
-<<<<<<< HEAD
-          chartData={mockAttendanceChart}
-=======
           chartData={attendanceData}
->>>>>>> b30ad49 (atualizado do vscode)
           chartType="doughnut"
           className="lg:col-span-1"
         />
