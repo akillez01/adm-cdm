@@ -90,10 +90,27 @@ export function useSupabase() {
     return data;
   }, []);
 
-  const addTransaction = useCallback(async (transaction: any) => {
+  const addTransaction = useCallback(async (
+    transaction: Database['public']['Tables']['transactions']['Insert']
+  ) => {
     const { data, error } = await supabase
       .from('transactions')
       .insert(transaction)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }, []);
+
+  const updateTransaction = useCallback(async (
+    id: string,
+    transaction: Database['public']['Tables']['transactions']['Update']
+  ) => {
+    const { data, error } = await supabase
+      .from('transactions')
+      .update(transaction)
+      .eq('id', id)
       .select()
       .single();
 
@@ -111,5 +128,6 @@ export function useSupabase() {
     updateInventoryItem,
     getTransactions,
     addTransaction,
+    updateTransaction,
   };
 }

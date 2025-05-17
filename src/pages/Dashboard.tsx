@@ -57,7 +57,9 @@ const Dashboard: React.FC = () => {
     }],
   });
 
-  const { supabase } = useSupabase();
+  const [recentActivities, setRecentActivities] = useState([]);
+
+  const { supabase, getMembers, getInventory, getTransactions } = useSupabase();
 
   useEffect(() => {
     loadDashboardData();
@@ -65,72 +67,124 @@ const Dashboard: React.FC = () => {
 
   const loadDashboardData = async () => {
     try {
-      // Load members count
-      const { count: membersCount } = await supabase
-        .from('members')
-        .select('*', { count: 'exact' });
+      // Load members data
+      const members = await getMembers();
+      const totalMembers = members.length;
+      const newMembersThisMonth = members.filter(member => {
+        const joinDate = new Date(member.join_date);
+        const today = new Date();
+        return joinDate.getMonth() === today.getMonth() && 
+               joinDate.getFullYear() === today.getFullYear();
+      }).length;
 
       // Load financial data
-      const { data: transactions } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false });
+      const transactions = await getTransactions();
+      const totalIncome = transactions
+        .filter(t => t.type !== 'expense')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      const totalExpenses = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
 
       // Load inventory data
-      const { data: inventory } = await supabase
-        .from('inventory_items')
-        .select('*')
-        .eq('status', 'low');
-
-      // Calculate totals
-      const totalIncome = transactions
-        ?.filter(t => t.type !== 'expense')
-        .reduce((sum, t) => sum + t.amount, 0) || 0;
+      const inventory = await getInventory();
+      const lowStockItems = inventory.filter(item => item.status === 'low').length;
 
       // Update stats
       setStats({
-        totalMembers: membersCount || 0,
+        totalMembers,
         totalIncome,
-        upcomingEvents: 0, // To be implemented with events table
-        lowStockItems: inventory?.length || 0,
+        upcomingEvents: 0, // To be implemented with events
+        lowStockItems,
       });
 
       // Update charts data
-      updateChartsData(transactions);
+      updateChartsData(transactions, members);
+
+      // Update recent activities
+      const recentTransactions = transactions
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 5);
+
+      const recentMembers = members
+        .sort((a, b) => new Date(b.join_date).getTime() - new Date(a.join_date).getTime())
+        .slice(0, 5);
+
+      const recentInventoryChanges = inventory
+        .filter(item => item.status === 'low')
+        .slice(0, 5);
+
+      setRecentActivities([
+        ...recentTransactions.map(t => ({
+          type: 'transaction',
+          data: t,
+          date: new Date(t.date),
+        })),
+        ...recentMembers.map(m => ({
+          type: 'member',
+          data: m,
+          date: new Date(m.join_date),
+        })),
+        ...recentInventoryChanges.map(i => ({
+          type: 'inventory',
+          data: i,
+          date: new Date(i.updated_at),
+        })),
+      ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 5));
+
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     }
   };
 
-  const updateChartsData = (transactions: any[]) => {
+  const updateChartsData = (transactions: any[], members: any[]) => {
     // Get last 6 months
     const months = Array.from({ length: 6 }, (_, i) => {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
-      return date.toLocaleString('pt-BR', { month: 'short' });
+      return {
+        label: date.toLocaleString('pt-BR', { month: 'short' }),
+        year: date.getFullYear(),
+        month: date.getMonth(),
+      };
     }).reverse();
 
     // Calculate monthly totals
     const monthlyIncome = new Array(6).fill(0);
     const monthlyExpenses = new Array(6).fill(0);
+    const monthlyNewMembers = new Array(6).fill(0);
 
-    transactions?.forEach(transaction => {
+    transactions.forEach(transaction => {
       const transactionDate = new Date(transaction.date);
-      const monthIndex = months.findIndex(month => 
-        month === transactionDate.toLocaleString('pt-BR', { month: 'short' })
+      const monthIndex = months.findIndex(m => 
+        m.month === transactionDate.getMonth() && 
+        m.year === transactionDate.getFullYear()
       );
 
       if (monthIndex !== -1) {
         if (transaction.type === 'expense') {
-          monthlyExpenses[monthIndex] += transaction.amount;
+          monthlyExpenses[monthIndex] += Number(transaction.amount);
         } else {
-          monthlyIncome[monthIndex] += transaction.amount;
+          monthlyIncome[monthIndex] += Number(transaction.amount);
         }
       }
     });
 
+    members.forEach(member => {
+      const joinDate = new Date(member.join_date);
+      const monthIndex = months.findIndex(m => 
+        m.month === joinDate.getMonth() && 
+        m.year === joinDate.getFullYear()
+      );
+
+      if (monthIndex !== -1) {
+        monthlyNewMembers[monthIndex]++;
+      }
+    });
+
     setFinanceData({
-      labels: months,
+      labels: months.map(m => m.label),
       datasets: [
         {
           label: 'Receitas',
@@ -146,6 +200,30 @@ const Dashboard: React.FC = () => {
         },
       ],
     });
+
+    setMembershipData({
+      labels: months.map(m => m.label),
+      datasets: [{
+        label: 'Novos Membros',
+        data: monthlyNewMembers,
+        backgroundColor: 'rgba(0, 59, 77, 0.7)',
+      }],
+    });
+  };
+
+  const formatTimeAgo = (date: Date) => {
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} minutos atrás`;
+    } else if (diffInMinutes < 1440) {
+      const hours = Math.floor(diffInMinutes / 60);
+      return `${hours} horas atrás`;
+    } else {
+      const days = Math.floor(diffInMinutes / 1440);
+      return `${days} dias atrás`;
+    }
   };
 
   return (
@@ -221,53 +299,60 @@ const Dashboard: React.FC = () => {
           </h3>
           
           <div className="space-y-4">
-            {[
-              { 
-                icon: <Users size={16} />, 
-                color: 'bg-primary-100 text-primary-500 dark:bg-primary-800', 
-                title: 'Novo membro registrado', 
-                description: 'Ana Costa foi adicionada como visitante', 
-                time: '5 minutos atrás' 
-              },
-              { 
-                icon: <DollarSign size={16} />, 
-                color: 'bg-secondary-100 text-secondary-500 dark:bg-secondary-800', 
-                title: 'Nova transação', 
-                description: 'Dízimo de R$ 500,00 recebido', 
-                time: '30 minutos atrás' 
-              },
-              { 
-                icon: <CalendarDays size={16} />, 
-                color: 'bg-blue-100 text-blue-500 dark:bg-blue-800', 
-                title: 'Evento adicionado', 
-                description: 'Encontro de Jovens programado', 
-                time: '2 horas atrás' 
-              },
-              { 
-                icon: <Package size={16} />, 
-                color: 'bg-yellow-100 text-yellow-500 dark:bg-yellow-800', 
-                title: 'Alerta de estoque', 
-                description: 'Material de Limpeza abaixo do mínimo', 
-                time: '5 horas atrás' 
-              },
-            ].map((activity, index) => (
-              <div key={index} className="flex">
-                <div className={`p-2 rounded-full ${activity.color} mr-3`}>
-                  {activity.icon}
+            {recentActivities.map((activity: any, index: number) => {
+              let icon;
+              let color;
+              let title;
+              let description;
+
+              switch (activity.type) {
+                case 'transaction':
+                  icon = activity.data.type === 'expense' ? 
+                    <DollarSign size={16} /> : 
+                    <TrendingUp size={16} />;
+                  color = activity.data.type === 'expense' ? 
+                    'bg-red-100 text-red-500 dark:bg-red-800' : 
+                    'bg-green-100 text-green-500 dark:bg-green-800';
+                  title = activity.data.type === 'expense' ? 
+                    'Nova despesa registrada' : 
+                    'Nova receita registrada';
+                  description = `${activity.data.description || activity.data.category} - R$ ${activity.data.amount}`;
+                  break;
+                case 'member':
+                  icon = <Users size={16} />;
+                  color = 'bg-primary-100 text-primary-500 dark:bg-primary-800';
+                  title = 'Novo membro registrado';
+                  description = `${activity.data.first_name} ${activity.data.last_name}`;
+                  break;
+                case 'inventory':
+                  icon = <Package size={16} />;
+                  color = 'bg-yellow-100 text-yellow-500 dark:bg-yellow-800';
+                  title = 'Alerta de estoque';
+                  description = `${activity.data.name} está com estoque baixo`;
+                  break;
+                default:
+                  return null;
+              }
+
+              return (
+                <div key={index} className="flex">
+                  <div className={`p-2 rounded-full ${color} mr-3`}>
+                    {icon}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-800 dark:text-white">
+                      {title}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {description}
+                    </p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      {formatTimeAgo(activity.date)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-800 dark:text-white">
-                    {activity.title}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {activity.description}
-                  </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    {activity.time}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           
           <button className="mt-4 text-primary-500 hover:text-primary-600 text-sm font-medium flex items-center">
